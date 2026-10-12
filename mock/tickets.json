@@ -1,0 +1,54 @@
+[
+  {
+    "code": "PEN-101",
+    "title": "Login button misaligned on mobile",
+    "status": "In Progress",
+    "description": "On viewports under 400px the primary **Login** button is pushed to the far right of the card instead of sitting full-width under the password field.\n\nSteps to reproduce:\n1. Open the login screen on a phone (or devtools at 375px).\n2. Notice the green button is right-aligned and overflows the padding.\n\nSee the attached screenshot (login-mobile.png). Expected: the button should be full-width and left-aligned with the inputs.",
+    "attachments": [
+      {
+        "id": "att-101-1",
+        "filename": "login-mobile.png",
+        "mimeType": "image/png",
+        "path": "images/login-mobile.png"
+      }
+    ],
+    "comments": [
+      {
+        "id": "c-101-1",
+        "author": "design@penglobalbd.com",
+        "body": "Confirmed on iPhone SE. The button container has a stray `margin-left: auto`.",
+        "createdAt": "2026-10-10T09:14:00.000Z"
+      }
+    ]
+  },
+  {
+    "code": "PEN-102",
+    "title": "API returns 500 on empty-cart checkout",
+    "status": "Open",
+    "description": "Hitting `POST /checkout` with an empty cart throws a 500 instead of a 400 validation error.\n\nThe stack trace (see error-trace.png) points at `CartService.total()` dividing by `items.length` when the cart is empty.",
+    "attachments": [
+      {
+        "id": "att-102-1",
+        "filename": "error-trace.png",
+        "mimeType": "image/png",
+        "path": "images/error-trace.png"
+      }
+    ],
+    "comments": []
+  },
+  {
+    "code": "PEN-103",
+    "title": "Add dark mode toggle to settings",
+    "status": "In Review",
+    "description": "Users have asked for a dark theme. Add a toggle under Settings > Appearance that persists the choice to local storage and respects `prefers-color-scheme` on first load.",
+    "attachments": [],
+    "comments": [
+      {
+        "id": "c-103-1",
+        "author": "pm@penglobalbd.com",
+        "body": "Nice to have for this sprint if there's time.",
+        "createdAt": "2026-10-11T15:02:00.000Z"
+      }
+    ]
+  }
+]
