@@ -1,0 +1,30 @@
+{
+  "name": "jira-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local MCP server for the in-house ticketing system (demo on mock JSON, swappable to the real API).",
+  "type": "module",
+  "bin": {
+    "jira-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "mock"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "gen:images": "node scripts/generate-mock-images.mjs",
+    "inspector": "npx @modelcontextprotocol/inspector node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.19.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
