@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PenTrack Tickets</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  html, body { margin: 0; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  /* Layout: fixed top bar; below it a two-column board — ticket list rail + detail panel — that stacks on phones. */
+  :root {
+    --bg: #eef1f6;
+    --surface: #ffffff;
+    --surface-2: #f6f8fb;
+    --border: #d8dee8;
+    --fg: #1c2430;
+    --muted: #5e6b7e;
+    --faint: #8a97a8;
+    --accent: #3f51b5;
+    --accent-ink: #ffffff;
+    --accent-soft: #e7eaf8;
+    --ok: #2f8f4e;
+    --ok-soft: #dff2e5;
+    --warn: #b7791f;
+    --warn-soft: #f7ecd4;
+    --info: #5b53c6;
+    --info-soft: #e7e5fa;
+    --crit: #c0392b;
+    --crit-soft: #f7e0dd;
+    --shadow: 0 1px 2px rgba(20,30,50,.06), 0 8px 24px rgba(20,30,50,.07);
+    --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10151d;
+      --surface: #171e28;
+      --surface-2: #1c2531;
+      --border: #2b3645;
+      --fg: #e6ebf2;
+      --muted: #9aa7b8;
+      --faint: #6c7a8d;
+      --accent: #7c8cf0;
+      --accent-ink: #0f1420;
+      --accent-soft: #232c45;
+      --ok: #6ed08b;
+      --ok-soft: #1e3326;
+      --warn: #e0b065;
+      --warn-soft: #352b18;
+      --info: #a39cf5;
+      --info-soft: #262349;
+      --crit: #f08a7d;
+      --crit-soft: #3a211e;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151d;
+    --surface: #171e28;
+    --surface-2: #1c2531;
+    --border: #2b3645;
+    --fg: #e6ebf2;
+    --muted: #9aa7b8;
+    --faint: #6c7a8d;
+    --accent: #7c8cf0;
+    --accent-ink: #0f1420;
+    --accent-soft: #232c45;
+    --ok: #6ed08b;
+    --ok-soft: #1e3326;
+    --warn: #e0b065;
+    --warn-soft: #352b18;
+    --info: #a39cf5;
+    --info-soft: #262349;
+    --crit: #f08a7d;
+    --crit-soft: #3a211e;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Top bar */
+  .topbar {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 10;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-block: 12px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px; flex: none;
+    background: var(--accent); color: var(--accent-ink);
+    display: grid; place-items: center; font-weight: 700; font-size: 15px;
+    font-family: var(--font-mono);
+  }
+  .brand-name { font-weight: 600; font-size: 16px; letter-spacing: .01em; }
+  .brand-sub { color: var(--faint); font-size: 12px; }
+  .spacer { flex: 1; }
+  .demo-pill {
+    font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--info); background: var(--info-soft);
+    padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+  }
+  .theme-btn {
+    appearance: none; border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--muted); border-radius: 8px; width: 34px; height: 34px; flex: none;
+    cursor: pointer; font-size: 15px; display: grid; place-items: center;
+  }
+  .theme-btn:hover { color: var(--fg); border-color: var(--accent); }
+
+  /* Board */
+  .board {
+    display: grid;
+    grid-template-columns: minmax(240px, 320px) 1fr;
+    gap: 18px;
+    align-items: start;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding-block: 18px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  /* Ticket rail */
+  .rail { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .rail-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+    padding: 2px 4px;
+  }
+  .ticket-card {
+    text-align: left; width: 100%; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 13px; display: flex; flex-direction: column; gap: 8px;
+    color: inherit; font: inherit; box-shadow: var(--shadow);
+    transition: border-color .12s, transform .12s;
+  }
+  .ticket-card:hover { border-color: var(--accent); }
+  .ticket-card[aria-current="true"] {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent); outline-offset: -1px;
+  }
+  .ticket-card .row1 { display: flex; align-items: center; gap: 8px; }
+  .ticket-code { font-family: var(--font-mono); font-size: 12px; color: var(--accent); font-weight: 600; }
+  .ticket-card .title { font-size: 14px; font-weight: 500; min-width: 0; }
+  .ticket-meta { display: flex; align-items: center; gap: 8px; color: var(--faint); font-size: 12px; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; flex: none;
+    font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .9; }
+  .badge.s-open    { color: var(--muted);  background: var(--surface-2); }
+  .badge.s-progress{ color: var(--warn);  background: var(--warn-soft); }
+  .badge.s-review  { color: var(--info);  background: var(--info-soft); }
+  .badge.s-done    { color: var(--ok);    background: var(--ok-soft); }
+  .badge.s-blocked { color: var(--crit);  background: var(--crit-soft); }
+
+  /* Detail panel */
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); min-width: 0; overflow: hidden;
+  }
+  .panel-head { padding: 20px 22px 16px; border-bottom: 1px solid var(--border); }
+  .panel-head .eyebrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .panel-head h1 { font-size: 21px; line-height: 1.25; margin: 0; text-wrap: balance; font-weight: 600; }
+  .panel-body { padding: 18px 22px 24px; display: flex; flex-direction: column; gap: 22px; }
+
+  .section-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--faint); font-weight: 600; margin-bottom: 8px;
+  }
+  .desc { font-size: 14.5px; color: var(--fg); }
+  .desc p { margin: 0 0 10px; }
+  .desc p:last-child { margin-bottom: 0; }
+  .desc code {
+    font-family: var(--font-mono); font-size: 12.5px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: 1px 5px; border-radius: 5px;
+  }
+  .desc ol { margin: 0 0 10px; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
+
+  .shot { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); max-width: 520px; }
+  .shot img { display: block; width: 100%; max-width: 100%; }
+  .shot figcaption { font-family: var(--font-mono); font-size: 11.5px; color: var(--faint); padding: 7px 10px; border-top: 1px solid var(--border); }
+
+  /* Comments */
+  .comments { display: flex; flex-direction: column; gap: 12px; }
+  .comment { display: flex; gap: 11px; }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    font-size: 12px; font-weight: 600; color: var(--accent-ink); background: var(--accent);
+    font-family: var(--font-mono);
+  }
+  .comment.mine .avatar { background: var(--info); }
+  .comment-body { min-width: 0; flex: 1; }
+  .comment-meta { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
+  .comment-author { font-size: 13px; font-weight: 600; }
+  .comment-time { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .comment-text { font-size: 14px; }
+  .comment-text code { font-family: var(--font-mono); font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--border); padding: 1px 5px; border-radius: 5px; }
+  .via { font-size: 10.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--info); background: var(--info-soft); padding: 1px 6px; border-radius: 5px; }
+
+  /* Composer + status control */
+  .controls { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+  .status-control { display: flex; flex-direction: column; gap: 6px; }
+  .status-control label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); font-weight: 600; }
+  select.status-select {
+    appearance: none; font: inherit; font-size: 14px; color: var(--fg);
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px;
+    padding: 9px 34px 9px 12px; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%238a97a8' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 11px center;
+  }
+  select.status-select:focus-visible, .theme-btn:focus-visible, .ticket-card:focus-visible, textarea:focus-visible, .send:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+
+  .composer { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 8px; }
+  textarea {
+    font: inherit; font-size: 14px; color: var(--fg); resize: vertical; min-height: 68px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 12px;
+  }
+  textarea::placeholder { color: var(--faint); }
+  .composer-actions { display: flex; align-items: center; gap: 12px; }
+  .send {
+    appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 13.5px;
+    background: var(--accent); color: var(--accent-ink); padding: 9px 16px; border-radius: 9px;
+  }
+  .send:disabled { opacity: .5; cursor: not-allowed; }
+  .hint { font-size: 12px; color: var(--faint); }
+
+  .divider { height: 1px; background: var(--border); border: 0; margin: 0; }
+  .foot {
+    max-width: 1120px; margin: 0 auto; color: var(--faint); font-size: 12px;
+    padding-block: 0 28px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .foot code { font-family: var(--font-mono); color: var(--muted); }
+
+  @media (max-width: 760px) {
+    .board { grid-template-columns: 1fr; }
+    .rail { order: 2; }
+    .panel { order: 1; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-mark">P</div>
+      <div style="min-width:0">
+        <div class="brand-name">PenTrack</div>
+        <div class="brand-sub">Engineering · Issues</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <span class="demo-pill" title="Same data the jira-mcp server feeds to Claude Code">MCP demo data</span>
+    <button class="theme-btn" id="themeBtn" aria-label="Toggle theme" title="Toggle light / dark">◐</button>
+  </div>
+</header>
+
+<main class="board">
+  <nav class="rail" aria-label="Tickets">
+    <div class="rail-head"><span>Open issues</span><span id="count"></span></div>
+    <div id="rail"></div>
+  </nav>
+
+  <section class="panel" aria-live="polite">
+    <div class="panel-head">
+      <div class="eyebrow">
+        <span class="ticket-code" id="dCode"></span>
+        <span class="badge" id="dBadge"></span>
+      </div>
+      <h1 id="dTitle"></h1>
+    </div>
+    <div class="panel-body">
+      <div>
+        <div class="section-label">Description</div>
+        <div class="desc" id="dDesc"></div>
+      </div>
+      <figure class="shot" id="dShot" hidden>
+        <img id="dShotImg" alt="">
+        <figcaption id="dShotCap"></figcaption>
+      </figure>
+
+      <div class="controls">
+        <div class="status-control">
+          <label for="statusSel">Status</label>
+          <select class="status-select" id="statusSel"></select>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div>
+        <div class="section-label" id="commentsLabel">Comments</div>
+        <div class="comments" id="dComments"></div>
+      </div>
+
+      <div class="composer">
+        <textarea id="composerText" placeholder="Add a comment…  (this is what add_comment posts from Claude Code)"></textarea>
+        <div class="composer-actions">
+          <button class="send" id="sendBtn" disabled>Comment</button>
+          <span class="hint">Posts as you@penglobalbd.com</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<p class="foot">
+  Prototype UI over the mock dataset. The same three actions here —
+  <code>get_ticket</code>, <code>add_comment</code>, <code>update_ticket_status</code> —
+  are the tools the <code>jira-mcp</code> server exposes to Claude Code. Your changes are saved in this browser only.
+</p>
+
+<script>
+  const IMG = {
+    "login-mobile.png": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAeAAAAEECAIAAAB/Y3BWAAAFJElEQVR4nO3codEYZBBF0XRGAwhi0RRBVygKygyOAmCiIvnECty7f3JmTgEr3ly5n3797XcAgj7NLwDgJNAAUf8F+qfPfwIwJ9AAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QdQT6n3+/AjAn0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0Q9eED/eWvvwH+v3m1BBrgNq+WQAPc5tUSaIDbvFoCDXCbV0ugAW7zagk0wG1eLYEGuM2rJdAAt3m1BBrgNq+WQAPc5tUSaIDbvFoCDXCbV0ugAW7zagk0wG1eLYEGuM2rJdAAt3m1BBrgNq+WQAPc5tUSaIDbvFoCDXCbV+sHCjTA90qgAaIEGiBKoAGiBBogSqABogQaIEqgAaIEGiBKoAGiBBogSqABogQaIEqgAaIEGiBKoAGiPnyg58+/gY9lXi2BBrjNqyXQALd5tQQa4DavlkAD3ObVEmiA27xaAg1wm1dLoAFu82oJNMBtXi2BBrjNqyXQALd5tQQa4DavlkAD3ObVEmiA27xaAg1wm1dLoAFu82oJNMBtXi2BBrjNqyXQALd5tQQa4DavlkAD3ObVEmiA27xaAg1wm1dLoAFu82oJNMBtXi2BBrjNqyXQALd5tQQa4DavlkAD3ObV+oECDfC9EmiAKIEGiBJogCiBBogSaIAogQaIEmiAKIEGiBJogCiBBogSaIAogQaIEmiAKIEGiBJogCiBBogSaIAogQaIEmiAKIEGiBJogCiBBogSaIAogQaIEmiAKIEGiBJogCiBBogSaIAogQaIEmgI+fmPX9iab+Al0BAyzxPzDbwEGkLmeWK+gZdAQ8g8T8w38BJoCJnnifkGXgINIfM8Md/AS6AhZJ4n5ht4CTSEzPPEfAMvgYaQeZ6Yb+Al0BAyzxPzDbwEGkLmeWK+gZdAQ8g8T8w38BJoCJnnifkGXgINIfM8Md/AS6AhZJ4n5ht4CTSEzPPEfAMvgYaQeZ6Yb+Al0BAyzxPzDbwEGkLmeWK+gZdAQ8g8T8w38BJoCJnnifkGXgINIfM8Md/AS6AhZJ4n5ht4CTSEzPPEfAMvgYaQeZ6Yb+Al0BAyzxPzDbwEGkLmeWK+gZdAQ8g8T8w38BJoCJnnifkGXgINIfM8Md/AS6AhZJ4n5ht4CTSEzPPEfAMvgYaQeZ6Yb+Al0BAyzxPzDbwEGkLmeWK+gZdAQ8g8T8w38BJoCJnnifkGXgINIfM8Md/AS6AhZJ4n5ht4CTRAlEADRAk0QJRAA0QJNECUQANECTRAlEADRAk0QJRAA0QJNECUQANECTRAlEADRAk0QJRAA0QJNECUQANECTRAlEADRAk0QJRAA0QdgQYgRaABogQaIOob3Sc7jORWgiUAAAAASUVORK5CYII=",
+    "error-trace.png": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAeAAAAEECAIAAAB/Y3BWAAAE1UlEQVR4nO3csa0dRxBFQYYhEArgR0yb0SgumXJIgMDbmT69qosKYI3pY+63LzMzS+7b9AeYmdmvJ9BmZtH9F+i/vv8NwDiBBogSaIAogQaIEmiAKIEGiBJogCiBBogSaIAogQaIEmiAKIEGiBJogCiBBogSaIAogQaIEmiAKIEGiHos0P98fQHwOwINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFGTgQbgWQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFFHAv3j5w+APzeewiaBBuaNp7BJoIF54ylsEmhg3ngKmwQamDeewiaBBuaNp7BJoIF54ylsEmhg3ngKmwQamDeewiaBBuaNp7BJoIF54ylsOhJoAD4n0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRRwI9/utC+D8bzwpPEWh4m/Gs8BSBhrcZzwpPEWh4m/Gs8BSBhrcZzwpPEWh4m/Gs8BSBhrcZzwpPEWh4m/Gs8BSBhrcZzwpPEWh4m/Gs8BSBhrcZzwpPEWh4m/Gs8BSBhrcZzwpPEWh4m/Gs8JQjgQbgcwINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINEHUk0OO/W+R9xk8F7hNodhg/FbhPoNlh/FTgPoFmh/FTgfsEmh3GTwXuE2h2GD8VuE+g2WH8VOA+gWaH8VOB+wSaHcZPBe4TaHYYPxW4T6DZYfxU4D6BZofxU4H7jgQagM8JNECUQANECTRAlEADRAk0QJRAA0QJNECUQANECTRAlEADRAk0QJRAA0QJNEDUkUCP/5oS4DSBBogSaIAogQaIEmiAKIEGiBJogCiBBogSaIAogQaIEmiAKIEGiNoaaAA+J9AAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUUcCPf4bQCgYP2+2E2g4Zfy82U6g4ZTx82Y7gYZTxs+b7QQaThk/b7YTaDhl/LzZTqDhlPHzZjuBhlPGz5vtBBpOGT9vthNoOGX8vNlOoOGU8fNmO4GGU8bPm+0EGk4ZP2+2OxJoAD4n0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRBwI9/htAKBg/b7YTaDhl/LzZTqDhlPHzZjuBhlPGz5vtBBpOGT9vthNoOGX8vNlOoOGU8fNmO4GGU8bPm+0EGk4ZP2+2E2g4Zfy82U6g4ZTx82Y7gYZTxs+b7QQaThk/b7YTaDhl/LzZTqDhlPHzZjuBhlPGz5vtBBpOGT9vthNoOGX8vNnuSKAB+JxAA0QJNECUQANECTRAlEADRAk0QJRAA0QJNECUQANECTRAlEADRAk0QJRAA0QdCfT4rwsBThNogCiBBogSaIAogQaIEmiAKIEGiBJogCiBBogSaIAogQaIEmiAKIEGiNoaaAA+J9AAUQINECXQAFECDRAl0ABRAg0QJdAAUQINECXQAFECDRAl0ABRAg0QJdAAUf8DiOLU+VmJlVsAAAAASUVORK5CYII="
+  };
+
+  const SEED = [
+    { code: "PEN-101", title: "Login button misaligned on mobile", status: "In Review",
+      description: "On viewports under 400px the primary **Login** button is pushed to the far right of the card instead of sitting full-width under the password field.\n\nSteps to reproduce:\n1. Open the login screen on a phone (or devtools at 375px).\n2. Notice the green button is right-aligned and overflows the padding.\n\nSee the attached screenshot (login-mobile.png). Expected: the button should be full-width and left-aligned with the inputs.",
+      shot: "login-mobile.png",
+      comments: [
+        { author: "design@penglobalbd.com", body: "Confirmed on iPhone SE. The button container has a stray `margin-left: auto`.", createdAt: "2026-10-10T09:14:00.000Z" },
+        { author: "me (via jira-mcp)", via: true, body: "Confirmed from the attached screenshot: the button is right-aligned because of `margin-left: auto` on its container. Fix is to remove that and set the button to `width: 100%` under the 400px breakpoint. Picking this up now.", createdAt: "2026-10-17T19:52:31.208Z" }
+      ] },
+    { code: "PEN-102", title: "API returns 500 on empty-cart checkout", status: "Open",
+      description: "Hitting `POST /checkout` with an empty cart throws a 500 instead of a 400 validation error.\n\nThe stack trace (see error-trace.png) points at `CartService.total()` dividing by `items.length` when the cart is empty.",
+      shot: "error-trace.png", comments: [] },
+    { code: "PEN-103", title: "Add dark mode toggle to settings", status: "In Review",
+      description: "Users have asked for a dark theme. Add a toggle under Settings > Appearance that persists the choice to local storage and respects `prefers-color-scheme` on first load.",
+      shot: null,
+      comments: [ { author: "pm@penglobalbd.com", body: "Nice to have for this sprint if there's time.", createdAt: "2026-10-11T15:02:00.000Z" } ] }
+  ];
+
+  const STATUSES = ["Open", "In Progress", "In Review", "Done", "Blocked"];
+  const STATUS_CLASS = { "Open": "s-open", "In Progress": "s-progress", "In Review": "s-review", "Done": "s-done", "Blocked": "s-blocked" };
+  const STORE_KEY = "pentrack.v1";
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return JSON.parse(JSON.stringify(SEED));
+  }
+  function saveState() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(tickets)); } catch (e) {}
+  }
+
+  let tickets = loadState();
+  let selected = tickets[0].code;
+
+  const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  function inline(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+?)`/g, "<code>$1</code>"); }
+
+  function renderDesc(text) {
+    const blocks = text.split("\n\n");
+    let html = "";
+    for (const b of blocks) {
+      const lines = b.split("\n");
+      if (lines.every((l) => /^\d+\.\s/.test(l))) {
+        html += "<ol>" + lines.map((l) => "<li>" + inline(l.replace(/^\d+\.\s/, "")) + "</li>").join("") + "</ol>";
+      } else {
+        html += "<p>" + lines.map(inline).join("<br>") + "</p>";
+      }
+    }
+    return html;
+  }
+
+  function initials(author) {
+    const name = author.split("@")[0].replace(/\(.*\)/, "").trim();
+    const parts = name.split(/[.\s]+/).filter(Boolean);
+    return ((parts[0]?.[0] || "?") + (parts[1]?.[0] || "")).toUpperCase();
+  }
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
+      ", " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  const railEl = document.getElementById("rail");
+  const countEl = document.getElementById("count");
+
+  function renderRail() {
+    countEl.textContent = tickets.length;
+    railEl.innerHTML = "";
+    for (const t of tickets) {
+      const btn = document.createElement("button");
+      btn.className = "ticket-card";
+      btn.type = "button";
+      btn.setAttribute("aria-current", t.code === selected ? "true" : "false");
+      btn.innerHTML =
+        '<div class="row1"><span class="ticket-code">' + t.code + '</span></div>' +
+        '<div class="title">' + esc(t.title) + '</div>' +
+        '<div class="ticket-meta"><span class="badge ' + STATUS_CLASS[t.status] + '">' + t.status + '</span>' +
+        '<span>· ' + t.comments.length + ' comment' + (t.comments.length === 1 ? '' : 's') + '</span></div>';
+      btn.addEventListener("click", () => { selected = t.code; renderAll(); });
+      railEl.appendChild(btn);
+    }
+  }
+
+  function current() { return tickets.find((t) => t.code === selected); }
+
+  function renderDetail() {
+    const t = current();
+    document.getElementById("dCode").textContent = t.code;
+    const badge = document.getElementById("dBadge");
+    badge.className = "badge " + STATUS_CLASS[t.status];
+    badge.textContent = t.status;
+    document.getElementById("dTitle").textContent = t.title;
+    document.getElementById("dDesc").innerHTML = renderDesc(t.description);
+
+    const shot = document.getElementById("dShot");
+    if (t.shot && IMG[t.shot]) {
+      document.getElementById("dShotImg").src = IMG[t.shot];
+      document.getElementById("dShotImg").alt = "Screenshot attached to " + t.code;
+      document.getElementById("dShotCap").textContent = t.shot;
+      shot.hidden = false;
+    } else {
+      shot.hidden = true;
+    }
+
+    const sel = document.getElementById("statusSel");
+    sel.innerHTML = STATUSES.map((s) => '<option' + (s === t.status ? ' selected' : '') + '>' + s + '</option>').join("");
+
+    const cl = document.getElementById("commentsLabel");
+    cl.textContent = "Comments · " + t.comments.length;
+
+    const box = document.getElementById("dComments");
+    box.innerHTML = "";
+    if (t.comments.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "hint";
+      empty.textContent = "No comments yet.";
+      box.appendChild(empty);
+    }
+    for (const c of t.comments) {
+      const row = document.createElement("div");
+      row.className = "comment" + (c.via ? " mine" : "");
+      row.innerHTML =
+        '<div class="avatar">' + initials(c.author) + '</div>' +
+        '<div class="comment-body">' +
+          '<div class="comment-meta"><span class="comment-author">' + esc(c.author) + '</span>' +
+          (c.via ? '<span class="via">via MCP</span>' : '') +
+          '<span class="comment-time">' + fmtTime(c.createdAt) + '</span></div>' +
+          '<div class="comment-text">' + inline(c.body) + '</div>' +
+        '</div>';
+      box.appendChild(row);
+    }
+  }
+
+  function renderAll() { renderRail(); renderDetail(); }
+
+  document.getElementById("statusSel").addEventListener("change", (e) => {
+    current().status = e.target.value;
+    saveState();
+    renderAll();
+  });
+
+  const composer = document.getElementById("composerText");
+  const sendBtn = document.getElementById("sendBtn");
+  composer.addEventListener("input", () => { sendBtn.disabled = composer.value.trim() === ""; });
+
+  function postComment() {
+    const body = composer.value.trim();
+    if (!body) return;
+    current().comments.push({ author: "you@penglobalbd.com", body, createdAt: new Date().toISOString() });
+    composer.value = "";
+    sendBtn.disabled = true;
+    saveState();
+    renderAll();
+  }
+  sendBtn.addEventListener("click", postComment);
+  composer.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") postComment();
+  });
+
+  // Theme toggle (per-viewer convenience)
+  const themeBtn = document.getElementById("themeBtn");
+  try {
+    const saved = localStorage.getItem("pentrack.theme");
+    if (saved) document.documentElement.setAttribute("data-theme", saved);
+  } catch (e) {}
+  themeBtn.addEventListener("click", () => {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark" ||
+      (!document.documentElement.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+    const next = isDark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("pentrack.theme", next); } catch (e) {}
+  });
+
+  renderAll();
+</script>
+</body>
+</html>
