@@ -34,6 +34,10 @@ export class MockProvider implements DataProvider {
     return ticket;
   }
 
+  async listTickets(): Promise<Ticket[]> {
+    return this.readAll();
+  }
+
   async getTicket(code: string): Promise<Ticket> {
     return this.find(await this.readAll(), code);
   }

@@ -32,6 +32,14 @@ export class HttpProvider implements DataProvider {
     return new URL(pathname.replace(/^\//, ""), this.opts.baseUrl.replace(/\/?$/, "/")).toString();
   }
 
+  async listTickets(): Promise<Ticket[]> {
+    const res = await fetch(this.url("tickets"), { headers: this.headers() });
+    if (!res.ok) throw new Error(`GET tickets failed: ${res.status} ${res.statusText}`);
+    const data = await res.json();
+    // TODO: map the real list payload into our Ticket[] shape.
+    return data as Ticket[];
+  }
+
   async getTicket(code: string): Promise<Ticket> {
     const res = await fetch(this.url(`tickets/${encodeURIComponent(code)}`), {
       headers: this.headers(),

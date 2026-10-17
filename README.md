@@ -126,10 +126,32 @@ claude mcp add jira-mcp -- node /absolute/path/to/jira-mcp/dist/index.js
 3. **In Claude Code:** copy `.mcp.json.example` → project `.mcp.json`, restart, and run the same three tools from a real session — confirm Claude actually *sees* the ticket image.
 4. **Demo for the company:** fetch a ticket (image appears in Claude) → add a comment → change status, all against fake JSON; then show that `TICKET_PROVIDER=http` is the only switch needed for the real API.
 
+## Live web UI
+
+A browser UI backed by the **same `DataProvider`** as the MCP, so changes made
+in the page and changes made through Claude Code both hit `mock/tickets.json`
+(and later the real API) and show up on both sides. The page polls every few
+seconds, so an MCP-driven change appears on its own.
+
+```bash
+npm run build && npm run web     # serves http://localhost:5050
+# or, no build step:
+npm run dev:web
+```
+
+Open http://localhost:5050, then in Claude Code say e.g. "move PEN-102 to In
+Progress" and watch the browser update. It's an Express server (`src/web/server.ts`)
+exposing a small REST API over the provider, with the frontend in `public/`.
+Set `PORT` to change the port.
+
+(There's also a standalone static mockup at `demo/pentrack.html` — no server,
+data baked in — for quick show-and-tell only.)
+
 ## Going live (after approval)
 
 Set `TICKET_PROVIDER=http` and provide `TICKET_API_BASE_URL` / `TICKET_API_TOKEN`,
 then fill in `src/providers/http.ts` to match the real API's payload shape.
+Both the MCP server and the web UI pick it up — no code change.
 
 ## Out of scope (for the demo)
 

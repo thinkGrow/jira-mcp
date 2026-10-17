@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PenTrack Tickets</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  /* Layout: fixed top bar; below it a two-column board — ticket list rail + detail panel — that stacks on phones. */
+  :root {
+    --bg: #eef1f6; --surface: #ffffff; --surface-2: #f6f8fb; --border: #d8dee8;
+    --fg: #1c2430; --muted: #5e6b7e; --faint: #8a97a8;
+    --accent: #3f51b5; --accent-ink: #ffffff; --accent-soft: #e7eaf8;
+    --ok: #2f8f4e; --ok-soft: #dff2e5; --warn: #b7791f; --warn-soft: #f7ecd4;
+    --info: #5b53c6; --info-soft: #e7e5fa; --crit: #c0392b; --crit-soft: #f7e0dd;
+    --shadow: 0 1px 2px rgba(20,30,50,.06), 0 8px 24px rgba(20,30,50,.07);
+    --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10151d; --surface: #171e28; --surface-2: #1c2531; --border: #2b3645;
+      --fg: #e6ebf2; --muted: #9aa7b8; --faint: #6c7a8d;
+      --accent: #7c8cf0; --accent-ink: #0f1420; --accent-soft: #232c45;
+      --ok: #6ed08b; --ok-soft: #1e3326; --warn: #e0b065; --warn-soft: #352b18;
+      --info: #a39cf5; --info-soft: #262349; --crit: #f08a7d; --crit-soft: #3a211e;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35); color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151d; --surface: #171e28; --surface-2: #1c2531; --border: #2b3645;
+    --fg: #e6ebf2; --muted: #9aa7b8; --faint: #6c7a8d;
+    --accent: #7c8cf0; --accent-ink: #0f1420; --accent-soft: #232c45;
+    --ok: #6ed08b; --ok-soft: #1e3326; --warn: #e0b065; --warn-soft: #352b18;
+    --info: #a39cf5; --info-soft: #262349; --crit: #f08a7d; --crit-soft: #3a211e;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35); color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-body); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+  .topbar { position: sticky; top: 0; z-index: 10; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .topbar-inner { display: flex; align-items: center; gap: 12px; padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand-mark { width: 30px; height: 30px; border-radius: 8px; flex: none; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 15px; font-family: var(--font-mono); }
+  .brand-name { font-weight: 600; font-size: 16px; }
+  .brand-sub { color: var(--faint); font-size: 12px; }
+  .spacer { flex: 1; }
+  .live-pill { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ok); background: var(--ok-soft); padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); animation: pulse 1.8s ease-in-out infinite; }
+  .live-pill.stale { color: var(--crit); background: var(--crit-soft); }
+  .live-pill.stale .live-dot { background: var(--crit); animation: none; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+  .theme-btn { appearance: none; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); border-radius: 8px; width: 34px; height: 34px; flex: none; cursor: pointer; font-size: 15px; display: grid; place-items: center; }
+  .theme-btn:hover { color: var(--fg); border-color: var(--accent); }
+
+  .board { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 18px; align-items: start; max-width: 1120px; margin: 0 auto; padding-block: 18px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+  .rail { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .rail-head { display: flex; align-items: baseline; justify-content: space-between; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; padding: 2px 4px; }
+  .ticket-card { text-align: left; width: 100%; cursor: pointer; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 13px; display: flex; flex-direction: column; gap: 8px; color: inherit; font: inherit; box-shadow: var(--shadow); transition: border-color .12s; }
+  .ticket-card:hover { border-color: var(--accent); }
+  .ticket-card[aria-current="true"] { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: -1px; }
+  .ticket-card .row1 { display: flex; align-items: center; gap: 8px; }
+  .ticket-code { font-family: var(--font-mono); font-size: 12px; color: var(--accent); font-weight: 600; }
+  .ticket-card .title { font-size: 14px; font-weight: 500; min-width: 0; }
+  .ticket-meta { display: flex; align-items: center; gap: 8px; color: var(--faint); font-size: 12px; }
+
+  .badge { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .9; }
+  .badge.s-open { color: var(--muted); background: var(--surface-2); }
+  .badge.s-progress { color: var(--warn); background: var(--warn-soft); }
+  .badge.s-review { color: var(--info); background: var(--info-soft); }
+  .badge.s-done { color: var(--ok); background: var(--ok-soft); }
+  .badge.s-blocked { color: var(--crit); background: var(--crit-soft); }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); min-width: 0; overflow: hidden; }
+  .panel-head { padding: 20px 22px 16px; border-bottom: 1px solid var(--border); }
+  .panel-head .eyebrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .panel-head h1 { font-size: 21px; line-height: 1.25; margin: 0; text-wrap: balance; font-weight: 600; }
+  .panel-body { padding: 18px 22px 24px; display: flex; flex-direction: column; gap: 22px; }
+
+  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); font-weight: 600; margin-bottom: 8px; }
+  .desc { font-size: 14.5px; }
+  .desc p { margin: 0 0 10px; } .desc p:last-child { margin-bottom: 0; }
+  .desc code, .comment-text code { font-family: var(--font-mono); font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--border); padding: 1px 5px; border-radius: 5px; }
+  .desc ol { margin: 0 0 10px; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
+
+  .shot { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); max-width: 520px; }
+  .shot img { display: block; width: 100%; }
+  .shot figcaption { font-family: var(--font-mono); font-size: 11.5px; color: var(--faint); padding: 7px 10px; border-top: 1px solid var(--border); }
+
+  .comments { display: flex; flex-direction: column; gap: 12px; }
+  .comment { display: flex; gap: 11px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--accent-ink); background: var(--accent); font-family: var(--font-mono); }
+  .comment.mine .avatar { background: var(--info); }
+  .comment-body { min-width: 0; flex: 1; }
+  .comment-meta { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
+  .comment-author { font-size: 13px; font-weight: 600; }
+  .comment-time { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .comment-text { font-size: 14px; }
+  .via { font-size: 10.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--info); background: var(--info-soft); padding: 1px 6px; border-radius: 5px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+  .status-control { display: flex; flex-direction: column; gap: 6px; }
+  .status-control label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); font-weight: 600; }
+  select.status-select { appearance: none; font: inherit; font-size: 14px; color: var(--fg); background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 9px 34px 9px 12px; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%238a97a8' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; }
+  select.status-select:focus-visible, .theme-btn:focus-visible, .ticket-card:focus-visible, textarea:focus-visible, .send:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .composer { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 8px; }
+  textarea { font: inherit; font-size: 14px; color: var(--fg); resize: vertical; min-height: 68px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 12px; }
+  textarea::placeholder { color: var(--faint); }
+  .composer-actions { display: flex; align-items: center; gap: 12px; }
+  .send { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 13.5px; background: var(--accent); color: var(--accent-ink); padding: 9px 16px; border-radius: 9px; }
+  .send:disabled { opacity: .5; cursor: not-allowed; }
+  .hint { font-size: 12px; color: var(--faint); }
+  .hint.err { color: var(--crit); }
+
+  .divider { height: 1px; background: var(--border); border: 0; margin: 0; }
+  .foot { max-width: 1120px; margin: 0 auto; color: var(--faint); font-size: 12px; padding-block: 0 28px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .foot code { font-family: var(--font-mono); color: var(--muted); }
+  .center-msg { padding: 40px 22px; text-align: center; color: var(--muted); }
+
+  @media (max-width: 760px) { .board { grid-template-columns: 1fr; } .rail { order: 2; } .panel { order: 1; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-mark">P</div>
+      <div style="min-width:0">
+        <div class="brand-name">PenTrack</div>
+        <div class="brand-sub" id="providerSub">Engineering · Issues</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <span class="live-pill" id="livePill" title="Reads live from the same data the MCP uses"><span class="live-dot"></span><span id="liveText">Live</span></span>
+    <button class="theme-btn" id="themeBtn" aria-label="Toggle theme" title="Toggle light / dark">◐</button>
+  </div>
+</header>
+
+<main class="board">
+  <nav class="rail" aria-label="Tickets">
+    <div class="rail-head"><span>Issues</span><span id="count"></span></div>
+    <div id="rail"></div>
+  </nav>
+
+  <section class="panel" aria-live="polite">
+    <div id="panelContent">
+      <div class="center-msg">Loading…</div>
+    </div>
+  </section>
+</main>
+
+<p class="foot">
+  Live UI. It reads and writes the same data the <code>jira-mcp</code> server uses
+  (<span id="providerName">mock</span> provider), so changes made here and changes made
+  through Claude Code show up on both — the page refreshes every few seconds.
+</p>
+
+<script>
+  const STATUSES = ["Open", "In Progress", "In Review", "Done", "Blocked"];
+  const STATUS_CLASS = { "Open": "s-open", "In Progress": "s-progress", "In Review": "s-review", "Done": "s-done", "Blocked": "s-blocked" };
+  const POLL_MS = 4000;
+
+  let tickets = [];
+  let selected = null;
+  let draft = "";          // composer text, preserved across polls
+  let composerFocused = false;
+  let errorMsg = "";
+
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+?)`/g, "<code>$1</code>");
+
+  function renderDesc(text) {
+    return (text || "").split("\n\n").map((b) => {
+      const lines = b.split("\n");
+      if (lines.every((l) => /^\d+\.\s/.test(l))) {
+        return "<ol>" + lines.map((l) => "<li>" + inline(l.replace(/^\d+\.\s/, "")) + "</li>").join("") + "</ol>";
+      }
+      return "<p>" + lines.map(inline).join("<br>") + "</p>";
+    }).join("");
+  }
+  function initials(author) {
+    const name = String(author).split("@")[0].replace(/\(.*\)/, "").trim();
+    const parts = name.split(/[.\s]+/).filter(Boolean);
+    return ((parts[0]?.[0] || "?") + (parts[1]?.[0] || "")).toUpperCase();
+  }
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) + ", " +
+      d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  async function api(path, opts) {
+    const res = await fetch(path, opts);
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { msg = (await res.json()).error || msg; } catch (e) {}
+      throw new Error(msg);
+    }
+    return res.status === 204 ? null : res.json();
+  }
+
+  function setLive(ok) {
+    const pill = document.getElementById("livePill");
+    const text = document.getElementById("liveText");
+    pill.classList.toggle("stale", !ok);
+    text.textContent = ok ? "Live" : "Disconnected";
+  }
+
+  function renderRail() {
+    document.getElementById("count").textContent = tickets.length;
+    const rail = document.getElementById("rail");
+    rail.innerHTML = "";
+    for (const t of tickets) {
+      const btn = document.createElement("button");
+      btn.className = "ticket-card";
+      btn.type = "button";
+      btn.setAttribute("aria-current", t.code === selected ? "true" : "false");
+      btn.innerHTML =
+        '<div class="row1"><span class="ticket-code">' + esc(t.code) + '</span></div>' +
+        '<div class="title">' + esc(t.title) + '</div>' +
+        '<div class="ticket-meta"><span class="badge ' + STATUS_CLASS[t.status] + '">' + esc(t.status) + '</span>' +
+        '<span>· ' + t.comments.length + ' comment' + (t.comments.length === 1 ? '' : 's') + '</span></div>';
+      btn.addEventListener("click", () => { selected = t.code; draft = ""; errorMsg = ""; renderDetail(); renderRail(); });
+      rail.appendChild(btn);
+    }
+  }
+
+  function current() { return tickets.find((t) => t.code === selected); }
+
+  function renderDetail() {
+    const panel = document.getElementById("panelContent");
+    const t = current();
+    if (!t) { panel.innerHTML = '<div class="center-msg">Select a ticket.</div>'; return; }
+
+    const shot = (t.attachments || []).find((a) => (a.mimeType || "").startsWith("image/"));
+    const commentsHtml = t.comments.length === 0
+      ? '<div class="hint">No comments yet.</div>'
+      : t.comments.map((c) => {
+          const mine = c.via || /via jira-mcp/i.test(c.author);
+          return '<div class="comment' + (mine ? ' mine' : '') + '">' +
+            '<div class="avatar">' + initials(c.author) + '</div>' +
+            '<div class="comment-body"><div class="comment-meta">' +
+            '<span class="comment-author">' + esc(c.author) + '</span>' +
+            (mine ? '<span class="via">via MCP</span>' : '') +
+            '<span class="comment-time">' + fmtTime(c.createdAt) + '</span></div>' +
+            '<div class="comment-text">' + inline(c.body) + '</div></div></div>';
+        }).join("");
+
+    panel.innerHTML =
+      '<div class="panel-head"><div class="eyebrow">' +
+        '<span class="ticket-code">' + esc(t.code) + '</span>' +
+        '<span class="badge ' + STATUS_CLASS[t.status] + '">' + esc(t.status) + '</span>' +
+      '</div><h1>' + esc(t.title) + '</h1></div>' +
+      '<div class="panel-body">' +
+        '<div><div class="section-label">Description</div><div class="desc">' + renderDesc(t.description) + '</div></div>' +
+        (shot ? '<figure class="shot"><img alt="Screenshot on ' + esc(t.code) + '" src="/api/tickets/' + encodeURIComponent(t.code) + '/attachments/' + encodeURIComponent(shot.id) + '"><figcaption>' + esc(shot.filename) + '</figcaption></figure>' : '') +
+        '<div class="controls"><div class="status-control"><label for="statusSel">Status</label>' +
+          '<select class="status-select" id="statusSel">' + STATUSES.map((s) => '<option' + (s === t.status ? ' selected' : '') + '>' + s + '</option>').join("") + '</select>' +
+        '</div></div>' +
+        '<hr class="divider">' +
+        '<div><div class="section-label">Comments · ' + t.comments.length + '</div><div class="comments">' + commentsHtml + '</div></div>' +
+        '<div class="composer">' +
+          '<textarea id="composerText" placeholder="Add a comment…">' + esc(draft) + '</textarea>' +
+          '<div class="composer-actions"><button class="send" id="sendBtn"' + (draft.trim() ? '' : ' disabled') + '>Comment</button>' +
+          '<span class="hint' + (errorMsg ? ' err' : '') + '" id="composerHint">' + (errorMsg ? esc(errorMsg) : 'Posts as you@penglobalbd.com · Cmd/Ctrl+Enter') + '</span></div>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById("statusSel").addEventListener("change", onStatusChange);
+    const composer = document.getElementById("composerText");
+    const sendBtn = document.getElementById("sendBtn");
+    composer.addEventListener("input", () => { draft = composer.value; sendBtn.disabled = draft.trim() === ""; });
+    composer.addEventListener("focus", () => { composerFocused = true; });
+    composer.addEventListener("blur", () => { composerFocused = false; });
+    composer.addEventListener("keydown", (e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") postComment(); });
+    sendBtn.addEventListener("click", postComment);
+    if (composerFocused) { composer.focus(); composer.selectionStart = composer.selectionEnd = composer.value.length; }
+  }
+
+  async function onStatusChange(e) {
+    const code = selected;
+    try {
+      await api("/api/tickets/" + encodeURIComponent(code), {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: e.target.value }),
+      });
+      await refresh();
+    } catch (err) { errorMsg = err.message; renderDetail(); }
+  }
+
+  async function postComment() {
+    const body = draft.trim();
+    if (!body) return;
+    try {
+      await api("/api/tickets/" + encodeURIComponent(selected) + "/comments", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+      });
+      draft = ""; errorMsg = "";
+      await refresh();
+    } catch (err) { errorMsg = err.message; renderDetail(); }
+  }
+
+  async function refresh() {
+    try {
+      const list = await api("/api/tickets");
+      tickets = list;
+      if (!selected && tickets.length) selected = tickets[0].code;
+      if (selected && !tickets.find((t) => t.code === selected)) selected = tickets[0]?.code ?? null;
+      setLive(true);
+      renderRail();
+      renderDetail();
+    } catch (err) {
+      setLive(false);
+    }
+  }
+
+  // Theme toggle (per-viewer convenience)
+  const themeBtn = document.getElementById("themeBtn");
+  try { const saved = localStorage.getItem("pentrack.theme"); if (saved) document.documentElement.setAttribute("data-theme", saved); } catch (e) {}
+  themeBtn.addEventListener("click", () => {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark" ||
+      (!document.documentElement.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+    const next = isDark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("pentrack.theme", next); } catch (e) {}
+  });
+
+  (async function init() {
+    try {
+      const meta = await api("/api/meta");
+      document.getElementById("providerName").textContent = meta.provider;
+      document.getElementById("providerSub").textContent = "Engineering · Issues · " + meta.provider;
+    } catch (e) {}
+    await refresh();
+    setInterval(refresh, POLL_MS);
+  })();
+</script>
+</body>
+</html>
