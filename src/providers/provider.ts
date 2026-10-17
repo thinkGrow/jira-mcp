@@ -16,6 +16,8 @@ export interface AttachmentData {
  * The tools in server.ts only ever talk to this interface.
  */
 export interface DataProvider {
+  /** All tickets, for the list/board view. */
+  listTickets(): Promise<Ticket[]>;
   getTicket(code: string): Promise<Ticket>;
   addComment(code: string, body: string): Promise<Comment>;
   updateStatus(code: string, status: string): Promise<Ticket>;
